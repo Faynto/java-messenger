@@ -6,7 +6,7 @@ import java.util.List;
 public class DatabaseManager {
     private static final String URL = "jdbc:postgresql://localhost:5432/messenger_db";
     private static final String USER = "postgres";
-    private static final String PASSWORD = "mohammadE$2";
+    private static final String PASSWORD = System.getenv("DB_PASSWORD") != null ? System.getenv("DB_PASSWORD") : "mohammadE$2";
 
     public DatabaseManager() {
         try {
