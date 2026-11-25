@@ -1,15 +1,20 @@
 import java.io.*;
 import java.net.*;
+import java.sql.SQLException;
+import java.util.List;
 
 public class ClientHandler implements Runnable {
     private final Socket socket;
     private final ChatServer server;
+    private final DatabaseManager dbManager;
     private PrintWriter out;
     private String username;
+    private int userId = -1;
 
-    public ClientHandler(Socket socket, ChatServer server) {
+    public ClientHandler(Socket socket, ChatServer server, DatabaseManager dbManager) {
         this.socket = socket;
         this.server = server;
+        this.dbManager = dbManager;
     }
 
     public void sendMessage(String message) {
@@ -31,11 +36,34 @@ public class ClientHandler implements Runnable {
                 this.username = "Anonymous";
             }
 
+            if (dbManager != null) {
+                try {
+                    this.userId = dbManager.getOrCreateUserId(this.username);
+                    List<String> history = dbManager.getRecentMessages(20);
+                    if (!history.isEmpty()) {
+                        out.println("--- Recent Chat History ---");
+                        for (String line : history) {
+                            out.println(line);
+                        }
+                        out.println("---------------------------");
+                    }
+                } catch (SQLException e) {
+                    System.out.println("Database error on join for " + username + ": " + e.getMessage());
+                }
+            }
+
             System.out.println(username + " joined the chat.");
             server.broadcast("[SERVER] " + username + " joined the chat!", this);
 
             String message;
             while ((message = in.readLine()) != null) {
+                if (dbManager != null && userId != -1) {
+                    try {
+                        dbManager.saveMessage(userId, message);
+                    } catch (SQLException e) {
+                        System.out.println("Failed to save message from " + username + ": " + e.getMessage());
+                    }
+                }
                 server.broadcast(username + ": " + message, this);
             }
         } catch (IOException e) {
